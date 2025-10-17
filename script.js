@@ -57,14 +57,13 @@ async function init() {
 
 async function setupAudio() {
     const audioFiles = ['sanpo_bass.mp3', 'sanpo_drums.mp3', 'sanpo_other.mp3'];
-    const keys = ['a', 'b', 'c']; // 対応するキーを配列で定義
-
-    const loadPromises = audioFiles.map(async (file, index) => { // index を受け取る
-        const key = keys[index]; // ファイル名ではなく、配列からキーを取得
+    const loadPromises = audioFiles.map(async (file) => {
+        const key = file.split('.')[0];
         const response = await fetch(file);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
+        // Web Audio APIのノードを作成
         sources[key] = audioContext.createBufferSource();
         sources[key].buffer = audioBuffer;
         sources[key].loop = true;
@@ -77,15 +76,14 @@ async function setupAudio() {
     await Promise.all(loadPromises);
 
     // 初期音量を設定 ('a'のみ1、他は0)
-    gains['a'].gain.value = 1;
-    gains['b'].gain.value = 0;
-    gains['c'].gain.value = 0;
+    gains['sanpo_bass'].gain.value = 1;
+    gains['sanpo_drums'].gain.value = 0;
+    gains['sanpo_other'].gain.value = 0;
 
     // 全ての音源を同時に再生開始
-    // ★注意: sourcesも同じキーでアクセスするので、修正が必要です
-    sources['a'].start(0);
-    sources['b'].start(0);
-    sources['c'].start(0);
+    sources['sanpo_bass'].start(0);
+    sources['sanpo_drums'].start(0);
+    sources['sanpo_other'].start(0);
 }
 
 function handleMotion(event) {
@@ -118,13 +116,13 @@ function handleMotion(event) {
 function updateAudioState(cadence) {
     let newState;
     if (cadence < STILL_THRESHOLD) {
-        newState = 'a';
+        newState = 'sanpo_bass';
         statusDiv.textContent = '静止';
     } else if (cadence < WALK_THRESHOLD) {
-        newState = 'b';
+        newState = 'sanpo_drums';
         statusDiv.textContent = '歩行';
     } else {
-        newState = 'c';
+        newState = 'sanpo_other';
         statusDiv.textContent = '速い歩行';
     }
 
