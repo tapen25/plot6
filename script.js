@@ -57,13 +57,14 @@ async function init() {
 
 async function setupAudio() {
     const audioFiles = ['sanpo_bass.mp3', 'sanpo_drums.mp3', 'sanpo_other.mp3'];
-    const loadPromises = audioFiles.map(async (file) => {
-        const key = file.split('.')[0];
+    const keys = ['a', 'b', 'c']; // 対応するキーを配列で定義
+
+    const loadPromises = audioFiles.map(async (file, index) => { // index を受け取る
+        const key = keys[index]; // ファイル名ではなく、配列からキーを取得
         const response = await fetch(file);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-        // Web Audio APIのノードを作成
         sources[key] = audioContext.createBufferSource();
         sources[key].buffer = audioBuffer;
         sources[key].loop = true;
@@ -81,6 +82,7 @@ async function setupAudio() {
     gains['c'].gain.value = 0;
 
     // 全ての音源を同時に再生開始
+    // ★注意: sourcesも同じキーでアクセスするので、修正が必要です
     sources['a'].start(0);
     sources['b'].start(0);
     sources['c'].start(0);
