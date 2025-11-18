@@ -1,7 +1,6 @@
 // ===============================
 // 1. 楽曲生成エンジン設定 (シンセ・コード)
 // ===============================
-
 const chords = [
   ["C3","E3","G3"], ["B2","D3","G3"], ["A2","C3","E3"], ["G2","B2","E3"],
   ["F2","A2","C3"], ["E2","G2","C3"], ["F2","A2","C3"], ["G2","B2","D3"]
@@ -36,6 +35,7 @@ let activity = 0.0;
 let bpm = 90;
 
 let isMouseMode = false;
+let motionListenerAttached = false; // ← 追加：二重登録防止フラグ
 
 // ===============================
 // 3. メロディ生成
@@ -83,8 +83,11 @@ function handleMotion(event) {
 
 // PCデバッグ：マウス位置を揺れとして扱う
 document.addEventListener("mousemove", (e) => {
-  isMouseMode = true;
-  sensorVariance = (e.clientX / window.innerWidth) * 8.0;
+  // マウスモードは常にオンにするわけではなく、センサーが無い・許可されない場合のフォールバックとして機能
+  if (!motionListenerAttached) {
+    isMouseMode = true;
+    sensorVariance = (e.clientX / window.innerWidth) * 8.0;
+  }
 });
 
 // ===============================
@@ -115,7 +118,12 @@ updateParameters();
 // ===============================
 // 6. 音楽スケジューリング
 // ===============================
+let musicSetupDone = false;
 function setupMusic() {
+  if (musicSetupDone) return; // 二重セット防止
+  musicSetupDone = true;
+
+  Tone.Transport.cancel(); // 念のため既存のスケジュールをクリア
 
   Tone.Transport.scheduleRepeat((time) => {
     const bar = Math.floor(Number(Tone.Transport.position.split(":")[0]) % 8);
@@ -126,7 +134,6 @@ function setupMusic() {
   let nextNoteTick = 0;
 
   Tone.Transport.scheduleRepeat((time) => {
-
     if (tickCounter < nextNoteTick) { tickCounter++; return; }
 
     let step = (activity < 0.3) ? 4 : (activity > 0.7 ? 1 : 2);
@@ -143,7 +150,6 @@ function setupMusic() {
 
     nextNoteTick = tickCounter + step;
     tickCounter++;
-
   }, "16n");
 
   // --- Drums ---
@@ -170,45 +176,80 @@ function setupMusic() {
     if (h) hihat.triggerAttackRelease("32n", time, (s%4===0)?1:0.3);
 
   }, "16n");
-
 }
 
 // ===============================
-// 7. 開始ボタン
+// 7. センサー許可関数（iOS/Android対応）
+// ===============================
+async function requestMotionPermission() {
+  // iOS 13+ （ユーザー操作時にしか許可できない）
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const permission = await DeviceMotionEvent.requestPermission();
+      if (permission === 'granted') {
+        if (!motionListenerAttached) {
+          window.addEventListener('devicemotion', handleMotion);
+          motionListenerAttached = true;
+        }
+        console.log("DeviceMotion permission granted");
+        return true;
+      } else {
+        console.warn("DeviceMotion permission denied");
+        return false;
+      }
+    } catch (err) {
+      console.error("DeviceMotionEvent.requestPermission error:", err);
+      return false;
+    }
+  } else {
+    // Android / その他ブラウザ（許可不要）
+    if (!motionListenerAttached) {
+      window.addEventListener('devicemotion', handleMotion);
+      motionListenerAttached = true;
+    }
+    console.log("devicemotion listener added (no permission required)");
+    return true;
+  }
+}
+
+// ===============================
+// 8. 開始ボタン処理（許可関数を使用）
 // ===============================
 const playBtn = document.getElementById('playBtn');
 let isPlaying = false;
 
 playBtn.addEventListener('click', async () => {
-
   if (!isPlaying) {
-
-    await Tone.start();
-
-    if (typeof DeviceMotionEvent !== 'undefined' &&
-        typeof DeviceMotionEvent.requestPermission === 'function') {
-      try {
-        const res = await DeviceMotionEvent.requestPermission();
-        if (res === 'granted') {
-          window.addEventListener('devicemotion', handleMotion);
-        }
-      } catch (err) { console.error(err); }
-    } else {
-      window.addEventListener('devicemotion', handleMotion);
+    // 1) センサー許可（iOSならここでプロンプトが出る）
+    const sensorGranted = await requestMotionPermission();
+    if (!sensorGranted) {
+      // センサーが無い or 拒否された場合、ユーザに知らせつつマウスフォールバックは有効のまま動作
+      alert("加速度センサーの許可が必要です（iOSでは必須）。許可しない場合はマウスによる代替動作になります。");
     }
 
+    // 2) Audio を開始（ユーザー操作内で呼ぶ）
+    try {
+      await Tone.start();
+    } catch (e) {
+      console.error("Tone.start() error:", e);
+    }
+
+    // 3) 音楽セットアップと開始
     setupMusic();
     Tone.Transport.start();
 
     playBtn.innerText = "STOP";
     playBtn.style.background = "#ff0099";
     isPlaying = true;
-
   } else {
+    // 停止処理
     Tone.Transport.stop();
-    Tone.Transport.cancel();
-    window.removeEventListener('devicemotion', handleMotion);
-
+    // Tone.Transport.cancel(); // スケジュールは残しておきたい場合はコメントアウト
+    if (motionListenerAttached) {
+      window.removeEventListener('devicemotion', handleMotion);
+      motionListenerAttached = false;
+    }
     playBtn.innerText = "START";
     playBtn.style.background = "#00d2ff";
     sensorVariance = 0;
