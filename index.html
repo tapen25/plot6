@@ -1,27 +1,42 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Walk & Music Interactive</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generative Walkman</title>
+  <script src="https://unpkg.com/tone@latest/build/Tone.js"></script>
+  <style>
+    body {
+      height: 100vh; margin: 0; background: #111; color: white;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: sans-serif; text-align: center;
+    }
+    button {
+      padding: 15px 30px; font-size: 1.2rem; cursor: pointer;
+      background: #00d2ff; border: none; border-radius: 50px; color: #000; font-weight: bold;
+      margin-top: 20px;
+    }
+    #status { font-size: 3rem; font-weight: bold; margin: 10px; }
+    #info { color: #aaa; margin: 10px; }
+    .meter-container {
+      width: 80%; height: 20px; background: #333; border-radius: 10px;
+      overflow: hidden; margin-top: 20px;
+    }
+    .meter-fill {
+      height: 100%; background: linear-gradient(90deg, #00d2ff, #ff0099);
+      width: 0%; transition: width 0.1s;
+    }
+  </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Walk & Music</h1>
-        <p>歩行のペースに合わせて音楽が滑らかに変化します。</p>
-        <p class="warning">※iOSデバイスでは、設定 > Safari > モーションと画面の向きのアクセスをオンにしてください。</p>
-        
-        <button id="startButton">スタート</button>
+  <div id="info">Movement controls Tempo & Arrangement</div>
+  <div id="status">STOPPED</div>
+  <div class="meter-container"><div id="meter" class="meter-fill"></div></div>
+  
+  <button id="playBtn">START (Allow Motion)</button>
 
-        <div class="status-display">
-            <p>現在の状態: <span id="status">静止</span></p>
-            <p>ケイデンス (歩/分): <span id="cadence">0</span></p>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
-
+  <!-- メインJS -->
+  <script src="main.js"></script>
 </body>
 </html>
