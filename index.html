@@ -231,15 +231,13 @@ function updateLoop() {
 // ==========================================
 // 6. 初期化とパーミッション処理
 // ==========================================
+
 const btn = document.getElementById('startBtn');
 const sensorState = document.getElementById('sensorState');
 
 btn.addEventListener('click', async () => {
-    // 音声コンテキスト開始
-    await Tone.start();
-    setupSynths();
-    
-    // iOS 13+ の許可リクエスト
+    // 【重要】iOS対策：何よりも先にまずセンサーの許可を求める
+    // Tone.start()の前にこれをやらないと "user gesture" エラーになります
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
             const permissionState = await DeviceMotionEvent.requestPermission();
@@ -248,18 +246,24 @@ btn.addEventListener('click', async () => {
                 motionListenerAttached = true;
                 sensorState.innerText = "センサー取得中(iOS)";
             } else {
-                alert("センサーの許可が必要です");
+                alert("センサーの使用が許可されませんでした。");
+                return; // 許可がない場合はここで終了
             }
         } catch (e) {
             console.error(e);
-            alert("センサーエラー: " + e);
+            alert("エラー: " + e);
+            return;
         }
     } else {
-        // Android / 古いiOS
+        // Android や PC など許可不要の端末
         window.addEventListener('devicemotion', handleMotion);
         motionListenerAttached = true;
         sensorState.innerText = "センサー取得中(Android/Other)";
     }
+
+    // センサー許可が通った後に、音声をスタートさせる
+    await Tone.start();
+    setupSynths();
 
     if (motionListenerAttached) {
         btn.innerText = "演奏中...";
